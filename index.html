@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>다같이 뽑기</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--text:#141824;--muted:#707789;--line:#e4e7ee;--accent:#6d5dfc;--accent2:#8a7fff;--danger:#e34e59;--ok:#168b5b;--shadow:0 12px 36px rgba(25,32,56,.09)}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+    button,input,textarea{font:inherit} button{cursor:pointer} button:disabled{cursor:not-allowed;opacity:.45}
+    .wrap{width:min(100%,980px);margin:auto;padding:22px 16px 60px}.hero{padding:12px 2px 20px}.hero h1{font-size:clamp(28px,6vw,46px);margin:0 0 8px;letter-spacing:-.05em}.hero p{margin:0;color:var(--muted);line-height:1.5}
+    .panel{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:var(--shadow);margin-bottom:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:grid;gap:7px;margin:12px 0}.field label{font-weight:700;font-size:14px}.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px 14px;background:#fff;outline:none;font-size:16px}.field input:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(109,93,252,.12)}.field textarea{min-height:180px;resize:vertical;line-height:1.45}
+    .btn{border:0;border-radius:13px;padding:13px 16px;font-weight:800;min-height:48px}.primary{background:var(--accent);color:white}.secondary{background:#eef0f6;color:#2b3242}.danger{background:#fff0f1;color:#b32631}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.space{justify-content:space-between}.muted{color:var(--muted)}.small{font-size:13px}.hidden{display:none!important}.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef0f6;padding:7px 10px;font-weight:750;font-size:13px}.dot{width:8px;height:8px;border-radius:50%;background:#aab0bf}.dot.on{background:#21a16b}.roomcode{font-size:clamp(32px,10vw,62px);font-weight:900;letter-spacing:.12em;margin:5px 0}.linkbox{word-break:break-all;background:#f5f6fa;border:1px solid var(--line);padding:12px;border-radius:12px;font-size:14px}
+    .cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-top:14px}.draw-card{aspect-ratio:.78;border:1px solid #d9ddea;border-radius:14px;background:linear-gradient(145deg,#fff,#f0f2f8);display:grid;place-items:center;position:relative;overflow:hidden;font-weight:900;font-size:18px;color:#4a5164;box-shadow:0 5px 14px rgba(36,43,66,.06);touch-action:manipulation}.draw-card::before{content:"?";font-size:27px;color:#a4aabb}.draw-card span{position:absolute;right:7px;bottom:5px;font-size:10px;color:#bbc0cd}.draw-card.claimed{background:#eceef3;border-style:dashed;box-shadow:none}.draw-card.claimed::before{content:"✓";color:#8a91a3}.draw-card.mine{outline:3px solid var(--accent);background:#f0eeff}.draw-card.mine::before{content:"★";color:var(--accent)}
+    .countdown{font-weight:950;text-align:center;font-size:clamp(80px,28vw,180px);line-height:1;padding:30px 0;color:var(--accent);letter-spacing:-.08em}.go{font-size:clamp(62px,20vw,130px)}
+    .result{border:2px solid var(--accent);background:#f5f3ff;border-radius:22px;padding:22px;text-align:center}.result .label{color:var(--muted);font-size:14px;font-weight:750}.result .value{font-size:clamp(30px,9vw,54px);font-weight:950;word-break:break-word;margin-top:6px;letter-spacing:-.04em}
+    .players{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.person{border:1px solid var(--line);border-radius:12px;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.person-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.picked{font-size:12px;color:var(--ok);font-weight:800}.waiting{font-size:12px;color:var(--muted)}
+    table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:12px}.status{min-height:22px;margin-top:8px;font-size:14px;font-weight:700}.status.err{color:var(--danger)}.status.ok{color:var(--ok)}
+    .tabs{display:flex;gap:8px;margin-bottom:14px}.tab{flex:1;border:1px solid var(--line);border-radius:13px;background:#fff;padding:12px;font-weight:800}.tab.active{border-color:var(--accent);color:var(--accent);background:#f4f2ff}.stickyHost{position:sticky;bottom:10px;z-index:4;background:rgba(246,247,251,.9);backdrop-filter:blur(10px);padding:10px 0}
+    @media(max-width:700px){.grid2{grid-template-columns:1fr}.cards{grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}.players{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{border-radius:18px;padding:15px}.wrap{padding:14px 12px 44px}}
+    @media(max-width:370px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.players{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>다같이 뽑기 🎴</h1>
+      <p>같은 링크에 모여서 3 · 2 · 1 후 동시에 하나씩 뽑아요. 먼저 선택된 카드는 바로 잠깁니다.</p>
+    </section>
+
+    <section id="homeView">
+      <div class="tabs">
+        <button id="joinTab" class="tab active" type="button">참가하기</button>
+        <button id="hostTab" class="tab" type="button">방 만들기</button>
+      </div>
+
+      <div id="joinPanel" class="panel">
+        <h2>뽑기방 참가</h2>
+        <div class="field"><label for="joinCode">방 코드</label><input id="joinCode" maxlength="6" autocapitalize="characters" placeholder="예: A7K9Q2"></div>
+        <div class="field"><label for="joinName">내 이름</label><input id="joinName" maxlength="30" placeholder="이름 입력"></div>
+        <button id="joinBtn" class="btn primary" type="button" style="width:100%">입장하기</button>
+        <div id="joinStatus" class="status"></div>
+      </div>
+
+      <div id="hostPanel" class="panel hidden">
+        <h2>새 뽑기방</h2>
+        <div class="field"><label for="hostName">진행자 이름</label><input id="hostName" maxlength="30" value="진행자"></div>
+        <div class="field">
+          <div class="row space"><label for="labels">뽑기 결과 <span id="labelCount" class="muted">60개</span></label><button id="fill60" class="btn secondary" type="button" style="min-height:36px;padding:8px 11px">1~60 자동입력</button></div>
+          <textarea id="labels" placeholder="한 줄에 하나씩 입력"></textarea>
+          <div class="small muted">예: 좌석번호, 선물, 순서, 팀 번호 등. 참가자 수보다 결과 개수가 같거나 많아야 해요.</div>
+        </div>
+        <label class="row small" style="margin:12px 0"><input id="shuffle" type="checkbox" checked> 시작할 때 결과 순서 섞기</label>
+        <button id="createBtn" class="btn primary" type="button" style="width:100%">방 만들기</button>
+        <div id="createStatus" class="status"></div>
+      </div>
+    </section>
+
+    <section id="playerView" class="hidden">
+      <div class="panel">
+        <div class="row space"><div><div class="small muted">ROOM</div><div id="pCode" style="font-size:22px;font-weight:900;letter-spacing:.08em"></div></div><div id="connectionBadge" class="badge"><i class="dot"></i><span>연결 중</span></div></div>
+        <div id="playerInfo" class="small muted" style="margin-top:8px"></div>
+      </div>
+      <div id="playerMessage" class="panel" style="text-align:center;font-weight:800">진행자가 시작할 때까지 기다려주세요.</div>
+      <div id="countdownPanel" class="panel hidden"><div id="countdown" class="countdown">3</div></div>
+      <div id="myResult" class="result hidden"><div class="label">내가 뽑은 결과</div><div id="myResultValue" class="value"></div></div>
+      <div id="boardPanel" class="panel">
+        <div class="row space"><strong>뽑기판</strong><span id="pickProgress" class="badge">0 / 0 선택</span></div>
+        <div id="cards" class="cards"></div>
+        <div id="pickStatus" class="status"></div>
+      </div>
+    </section>
+
+    <section id="hostView" class="hidden">
+      <div class="panel">
+        <div class="small muted">방 코드</div>
+        <div id="hCode" class="roomcode"></div>
+        <div class="row"><button id="copyLink" class="btn primary" type="button">초대 링크 복사</button><button id="shareLink" class="btn secondary" type="button">공유하기</button></div>
+        <div id="inviteLink" class="linkbox" style="margin-top:10px"></div>
+        <div id="hostStatus" class="status"></div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="row space"><strong>참가자</strong><span id="playerCount" class="badge">0명</span></div>
+          <div id="hostPlayers" class="players" style="margin-top:12px"></div>
+        </div>
+        <div class="panel">
+          <div class="row space"><strong>진행 상황</strong><span id="hostProgress" class="badge">0 / 0</span></div>
+          <div id="hostPhase" style="font-size:32px;font-weight:950;margin:16px 0 4px">대기 중</div>
+          <div class="small muted">시작 후에는 새 참가자가 들어올 수 없어요.</div>
+        </div>
+      </div>
+
+      <div class="stickyHost"><div class="row"><button id="startBtn" class="btn primary" type="button" style="flex:1">3 · 2 · 1 시작!</button><button id="resetBtn" class="btn danger" type="button">다시 뽑기</button></div></div>
+
+      <div class="panel">
+        <div class="row space"><strong>결과표</strong><span class="small muted">진행자에게만 표시</span></div>
+        <div style="overflow:auto;margin-top:8px"><table><thead><tr><th>이름</th><th>상태</th><th>결과</th></tr></thead><tbody id="resultsBody"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    const socket = io();
+    let mode = 'home', roomCode = '', hostToken = '', currentState = null, myCardId = null, countdownTimer = null;
+    const playerKey = getPlayerKey();
+
+    function getPlayerKey(){
+      let key = localStorage.getItem('groupDrawPlayerKey');
+      if(!key){ key = (crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random()); localStorage.setItem('groupDrawPlayerKey', key); }
+      return key;
+    }
+    function setStatus(id, text='', type=''){ const el=$(id); el.textContent=text; el.className='status'+(type?' '+type:''); }
+    function show(id){ $(id).classList.remove('hidden'); }
+    function hide(id){ $(id).classList.add('hidden'); }
+    function escapeText(v){ return String(v ?? ''); }
+    function defaultLabels(){ return Array.from({length:60},(_,i)=>`${i+1}번`).join('\n'); }
+    function syncLabelCount(){ const n=$('labels').value.split('\n').map(v=>v.trim()).filter(Boolean).length; $('labelCount').textContent=`${n}개`; }
+
+    $('labels').value = defaultLabels(); syncLabelCount();
+    $('labels').addEventListener('input', syncLabelCount);
+    $('fill60').addEventListener('click',()=>{ $('labels').value=defaultLabels(); syncLabelCount(); });
+    $('joinTab').addEventListener('click',()=>{ $('joinTab').classList.add('active'); $('hostTab').classList.remove('active'); show('joinPanel'); hide('hostPanel'); });
+    $('hostTab').addEventListener('click',()=>{ $('hostTab').classList.add('active'); $('joinTab').classList.remove('active'); show('hostPanel'); hide('joinPanel'); });
+
+    const qs = new URLSearchParams(location.search);
+    if(qs.get('room')) $('joinCode').value = qs.get('room').toUpperCase().slice(0,6);
+
+    $('createBtn').addEventListener('click',()=>{
+      const labels=$('labels').value.split('\n').map(v=>v.trim()).filter(Boolean);
+      $('createBtn').disabled=true; setStatus('createStatus','방 만드는 중...');
+      socket.emit('createRoom',{hostName:$('hostName').value,labels,shuffle:$('shuffle').checked},res=>{
+        $('createBtn').disabled=false;
+        if(!res?.ok) return setStatus('createStatus',res?.error||'방을 만들지 못했어요.','err');
+        roomCode=res.code; hostToken=res.hostToken; mode='host'; sessionStorage.setItem('groupDrawHost',JSON.stringify({code:roomCode,hostToken}));
+        hide('homeView'); show('hostView'); currentState=res.state; renderHost(res.state);
+        history.replaceState(null,'',location.pathname+'?host='+roomCode);
+      });
+    });
+
+    $('joinBtn').addEventListener('click',()=>{
+      const code=$('joinCode').value.trim().toUpperCase(), name=$('joinName').value.trim();
+      $('joinBtn').disabled=true; setStatus('joinStatus','입장 중...');
+      socket.emit('joinRoom',{code,name,playerKey},res=>{
+        $('joinBtn').disabled=false;
+        if(!res?.ok) return setStatus('joinStatus',res?.error||'입장하지 못했어요.','err');
+        roomCode=code; mode='player'; currentState=res.state; myCardId=res.myCardId;
+        localStorage.setItem('groupDrawLastJoin',JSON.stringify({code,name}));
+        hide('homeView'); show('playerView'); $('pCode').textContent=roomCode; $('playerInfo').textContent=`${name}님`;
+        if(res.myResult) showMyResult(res.myResult); renderPlayer(res.state);
+        history.replaceState(null,'',location.pathname+'?room='+roomCode);
+      });
+    });
+
+    $('joinCode').addEventListener('input',e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6));
+    ['joinCode','joinName'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter') $('joinBtn').click(); }));
+
+    function phaseText(phase){ return ({lobby:'대기 중',countdown:'카운트다운',drawing:'뽑는 중!',complete:'완료'})[phase]||phase; }
+
+    function renderCards(state){
+      const box=$('cards'); box.textContent='';
+      state.cards.forEach(card=>{
+        const b=document.createElement('button'); b.type='button'; b.className='draw-card'; b.setAttribute('aria-label',`${card.id+1}번째 카드`);
+        if(card.claimed) b.classList.add('claimed');
+        if(myCardId===card.id) b.classList.add('mine');
+        b.disabled = state.phase!=='drawing' || card.claimed || myCardId!==null;
+        const n=document.createElement('span'); n.textContent=card.id+1; b.appendChild(n);
+        b.addEventListener('click',()=>pickCard(card.id,b)); box.appendChild(b);
+      });
+      $('pickProgress').textContent=`${state.pickedCount} / ${state.cardCount} 선택`;
+    }
+
+    function renderPlayer(state){
+      currentState=state; renderCards(state);
+      if(state.phase==='lobby'){ show('playerMessage'); $('playerMessage').textContent='진행자가 시작할 때까지 기다려주세요.'; hide('countdownPanel'); }
+      if(state.phase==='countdown'){ hide('playerMessage'); show('countdownPanel'); startCountdownUI(state.unlockAt); }
+      if(state.phase==='drawing'){ hide('countdownPanel'); show('playerMessage'); $('playerMessage').textContent=myCardId===null?'지금! 원하는 카드 하나를 눌러주세요 👆':'뽑기 완료!'; }
+      if(state.phase==='complete'){ hide('countdownPanel'); show('playerMessage'); $('playerMessage').textContent='모두 뽑았습니다 🎉'; }
+    }
+
+    function startCountdownUI(unlockAt){
+      clearInterval(countdownTimer);
+      const tick=()=>{
+        const left=Math.max(0,unlockAt-Date.now()); const n=Math.ceil(left/1000); const el=$('countdown');
+        if(left<=150){ el.textContent='GO!'; el.classList.add('go'); clearInterval(countdownTimer); }
+        else { el.textContent=Math.min(3,Math.max(1,n)); el.classList.remove('go'); }
+      };
+      tick(); countdownTimer=setInterval(tick,80);
+    }
+
+    function pickCard(cardId,button){
+      if(myCardId!==null) return;
+      button.disabled=true; setStatus('pickStatus','선택 확인 중...');
+      socket.emit('pickCard',{code:roomCode,cardId},res=>{
+        if(!res?.ok){ setStatus('pickStatus',res?.error||'선택하지 못했어요.','err'); if(res?.result) showMyResult(res.result); return; }
+        myCardId=res.cardId; showMyResult(res.result); setStatus('pickStatus','선택 완료!','ok');
+        if(currentState) renderCards(currentState);
+      });
+    }
+    function showMyResult(value){ $('myResultValue').textContent=escapeText(value); show('myResult'); }
+
+    function renderHost(state){
+      currentState=state; $('hCode').textContent=state.code; $('playerCount').textContent=`${state.players.length}명`; $('hostProgress').textContent=`${state.pickedCount} / ${state.players.length}`; $('hostPhase').textContent=phaseText(state.phase);
+      const invite=location.origin+location.pathname+'?room='+state.code; $('inviteLink').textContent=invite;
+      const pbox=$('hostPlayers'); pbox.textContent='';
+      state.players.forEach(p=>{ const d=document.createElement('div'); d.className='person'; const n=document.createElement('div'); n.className='person-name'; n.textContent=p.name; const s=document.createElement('span'); s.className=p.picked?'picked':'waiting'; s.textContent=p.picked?'완료':(p.online?'대기':'오프라인'); d.append(n,s); pbox.appendChild(d); });
+      if(!state.players.length){ const e=document.createElement('div'); e.className='muted small'; e.textContent='아직 참가자가 없어요.'; pbox.appendChild(e); }
+      const tbody=$('resultsBody'); tbody.textContent='';
+      (state.results||[]).forEach(r=>{ const tr=document.createElement('tr'); [r.name,r.picked?'완료':'대기',r.result??'—'].forEach(v=>{ const td=document.createElement('td'); td.textContent=v; tr.appendChild(td); }); tbody.appendChild(tr); });
+      $('startBtn').disabled = state.phase!=='lobby' || state.players.length<1;
+      $('resetBtn').disabled = state.phase==='lobby' && state.pickedCount===0;
+    }
+
+    $('startBtn').addEventListener('click',()=>{
+      $('startBtn').disabled=true; setStatus('hostStatus','3 · 2 · 1 시작!','ok');
+      socket.emit('startCountdown',{code:roomCode,hostToken},res=>{ if(!res?.ok) setStatus('hostStatus',res?.error||'시작하지 못했어요.','err'); });
+    });
+    $('resetBtn').addEventListener('click',()=>{
+      if(!confirm('모든 추첨 결과를 지우고 다시 뽑을까요?')) return;
+      socket.emit('resetRoom',{code:roomCode,hostToken},res=>{ if(!res?.ok) setStatus('hostStatus',res?.error||'초기화하지 못했어요.','err'); else setStatus('hostStatus','다시 뽑을 준비 완료!','ok'); });
+    });
+    $('copyLink').addEventListener('click',async()=>{
+      const text=$('inviteLink').textContent;
+      try{ await navigator.clipboard.writeText(text); setStatus('hostStatus','초대 링크를 복사했어요.','ok'); }
+      catch{ window.prompt('이 링크를 복사해주세요.',text); }
+    });
+    $('shareLink').addEventListener('click',async()=>{
+      const url=$('inviteLink').textContent;
+      if(navigator.share){ try{ await navigator.share({title:'다같이 뽑기',text:`방 코드 ${roomCode}`,url}); }catch{} }
+      else $('copyLink').click();
+    });
+
+    socket.on('roomState',state=>{ if(mode==='player' && state.code===roomCode) renderPlayer(state); });
+    socket.on('hostState',state=>{ if(mode==='host' && state.code===roomCode) renderHost(state); });
+    socket.on('connect',()=>{ const b=$('connectionBadge'); if(b){ b.querySelector('.dot')?.classList.add('on'); b.querySelector('span').textContent='연결됨'; } });
+    socket.on('disconnect',()=>{ const b=$('connectionBadge'); if(b){ b.querySelector('.dot')?.classList.remove('on'); b.querySelector('span').textContent='재연결 중'; } });
+
+    function tryResumeHost(){
+      const raw=sessionStorage.getItem('groupDrawHost'); if(!raw) return;
+      let saved; try{saved=JSON.parse(raw)}catch{return}
+      if(qs.get('host')!==saved.code) return;
+      socket.emit('resumeHost',saved,res=>{
+        if(!res?.ok) return;
+        roomCode=saved.code; hostToken=saved.hostToken; mode='host'; hide('homeView'); show('hostView'); renderHost(res.state);
+      });
+    }
+    socket.on('connect',tryResumeHost);
+  </script>
+</body>
+</html>
