@@ -1,12 +1,8 @@
 services:
   - type: web
-    name: group-draw
+    name: group-draw-site
     runtime: node
     plan: free
-    region: singapore
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
-    envVars:
-      - key: NODE_VERSION
-        value: 22

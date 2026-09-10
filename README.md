@@ -1,42 +1,40 @@
-# 다같이 뽑기 — 아이폰 업로드용
+# 3Q Team Building Lucky Draw
 
-아이폰에서 GitHub에 올리기 쉽게 모든 필수 파일을 한 폴더 안에 평평하게 넣었습니다.
+약 60명이 같은 링크에 접속해 4개의 경품 게임을 순서대로 진행하는 실시간 모바일 뽑기 사이트입니다.
 
-## GitHub에 올릴 파일
-압축을 푼 뒤 `group-draw-site-iphone` 폴더 안에서 아래 파일을 **전부 선택해서 한 번에 업로드**하세요.
+## 게임 순서
+1. 4등 — 오덴세 무드 조명 — 3명
+2. 3등 — 천지연 20만원 식사권 — 1명
+3. 2등 — 신세계 상품권 30만원권 — 1명
+4. 1등 — 마샬 액톤4 (완전 신상!!) — 1명
 
-- `index.html`
-- `server.js`
-- `package.json`
-- `render.yaml`
-- `README.md`
+## 동작
+- 메인 화면: 행사 포스터 이미지
+- 참가자는 방 코드/초대 링크로 입장하고 이름 등록
+- 각 게임 시작 전 해당 경품 이미지 공개
+- 진행자가 `3 · 2 · 1` 시작
+- 참가자 수만큼 카드가 생성되고, 게임마다 당첨 카드 위치가 서버에서 새로 랜덤 선정
+- 한 카드는 한 명만 선택 가능
+- 모두 한 장씩 선택할 때까지 당첨자는 공개되지 않음
+- 전원 선택 완료 즉시 당첨자 이름을 모든 화면에 공개
+- 당첨자 공개 시 폭죽 애니메이션
+- 이전 게임 당첨자 기록도 계속 표시
+- 첫 게임 시작 시 참가 명단 고정
 
-GitHub 저장소 첫 화면에 위 파일들이 바로 보이면 정상입니다.
+## 로컬 실행
+```bash
+npm install
+npm start
+```
+브라우저에서 `http://localhost:3000` 접속.
 
-## 아이폰 배포 순서
-1. Safari → github.com 로그인
-2. `+` → `New repository`
-3. 이름 `group-draw` → `Public` → `Create repository`
-4. `uploading an existing file` 또는 `Add file` → `Upload files`
-5. 파일 앱에서 위 5개 파일 모두 선택 → 업로드
-6. `Commit changes`
-7. Safari → dashboard.render.com 로그인
-8. GitHub 연결
-9. `+ New` → `Blueprint`
-10. `group-draw` 저장소 → `Connect`
-11. Blueprint path가 `render.yaml`인지 확인
-12. `Deploy Blueprint` / `Apply`
-13. 배포가 끝나면 `https://...onrender.com` 주소가 생김
-14. 그 주소에 접속 → 방 생성 → 초대 링크를 60명에게 공유
-
-## Render 설정
-`render.yaml`에 아래가 이미 설정되어 있습니다.
-- Node.js
-- Free 요금제
-- Singapore 리전
+## Render 배포
+- Runtime: Node
 - Build command: `npm install`
 - Start command: `npm start`
+- Node.js: 20 이상
+
+`render.yaml`이 포함되어 있어 GitHub 저장소에 올린 뒤 Render Web Service로 연결할 수 있습니다.
 
 ## 주의
-무료 Render 서비스는 오래 사용하지 않으면 잠들 수 있으니 행사 5분 전 진행자가 사이트를 한 번 열어두세요.
-방 상태는 서버 메모리에 저장되므로 서버 재시작 시 방이 초기화될 수 있습니다.
+현재 방 상태는 서버 메모리에 저장됩니다. Render 서버가 재시작되면 진행 중인 방은 사라집니다. 행사 당일에는 추첨 직전에 방을 만들어 사용하는 것을 권장합니다.

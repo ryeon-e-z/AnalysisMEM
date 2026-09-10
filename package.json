@@ -1,8 +1,8 @@
 {
   "name": "group-draw-site",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Real-time group draw board for up to ~60 participants",
+  "description": "Real-time four-round prize draw for a group event",
   "type": "module",
   "scripts": {
     "start": "node server.js",
