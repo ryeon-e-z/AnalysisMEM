@@ -24,6 +24,7 @@
     .people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.person{border:1px solid var(--line);border-radius:11px;padding:10px;display:flex;justify-content:space-between;gap:6px;font-size:13px}.person-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:750}.picked{color:var(--ok)}.offline{color:var(--danger)}.waiting{color:var(--muted)}.winner{color:#8a5e15;font-weight:850}
     .invite{padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:#f8f9fb;font-size:12px;word-break:break-all;color:#545b6b;margin:10px 0}.host-controls{padding:16px 18px;border-top:1px solid var(--line)}
     #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999}
+    .final-results{padding:36px 18px;background:linear-gradient(160deg,#fffdf7,#fff);text-align:center}.final-thanks{margin:0 0 14px;font-size:clamp(40px,10vw,90px);font-weight:950;line-height:1.2;letter-spacing:-.055em;word-break:keep-all;color:#70511f}.final-subtitle{margin:0 0 28px;color:var(--muted);line-height:1.5}.final-results h2{margin:0 0 14px;font-size:24px}.final-list{display:grid;gap:10px;text-align:left}.final-row{padding:16px;border:1px solid #eadfc9;border-radius:14px;background:#fff}.final-rank{color:#805d25;font-weight:900}.final-prize{margin:4px 0 10px;font-size:16px;overflow-wrap:anywhere}.final-winners{display:flex;flex-wrap:wrap;gap:8px}.final-winners .winner-chip{margin:0;font-size:20px;overflow-wrap:anywhere;max-width:100%}
     @media (max-width:560px){.wrap{padding-left:10px;padding-right:10px}.panel{border-radius:16px}.panel-pad,.hero-copy,.game-caption{padding-left:14px;padding-right:14px}.cards{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.draw-card{border-radius:10px;font-size:15px}.people{grid-template-columns:1fr}.room-code{font-size:23px}.count{font-size:82px}}
     @media (max-width:370px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}}
   </style>
@@ -167,15 +168,21 @@
     return `<div class="history"><h3>🏅 지금까지 당첨자</h3>${rows}</div>`;
   }
 
+  function finalHTML(state){
+    const rows=[...(state.history||[])].sort((a,b)=>b.gameIndex-a.gameIndex).map(h=>`<div class="final-row"><div class="final-rank">${esc(h.rank)}</div><div class="final-prize">${esc(h.prize)}</div><div class="final-winners">${h.winners.map(w=>`<div class="winner-chip">🏆 ${esc(w.name)}</div>`).join('')}</div></div>`).join('');
+    return `<div class="final-results" aria-live="polite"><h1 class="final-thanks">수고하셨습니다.</h1><p class="final-subtitle">함께해주셔서 감사합니다!</p><h2>최종 당첨 결과</h2><div class="final-list">${rows}</div></div>`;
+  }
+
   function renderPlayer(state){
     currentState=state; $('playerPhase').textContent=phaseText(state.phase);
     const panel=$('playerGamePanel');
     if(state.phase==='intro') { myPick=null; panel.innerHTML=introHTML(state,false); }
     else if(state.phase==='countdown') { myPick=null; panel.innerHTML=countdownHTML(state,true); startCountdownUI(state.unlockAt); }
     else if(state.phase==='drawing') { panel.innerHTML=drawingHTML(state,false); if(!myHasWon) bindCardButtons(); }
+    else if(state.phase==='finished') panel.innerHTML=finalHTML(state);
     else { panel.innerHTML=revealHTML(state,true); maybeCelebrate(state,true); }
     const hist=$('playerHistory');
-    if(state.history?.length){ hist.innerHTML=historyHTML(state); show('playerHistory'); } else hide('playerHistory');
+    if(state.history?.length&&state.phase!=='finished'){ hist.innerHTML=historyHTML(state); show('playerHistory'); } else hide('playerHistory');
   }
 
   function bindCardButtons(){ document.querySelectorAll('#cards .draw-card').forEach(b=>b.addEventListener('click',()=>pickCard(Number(b.dataset.card),b))); }
@@ -200,6 +207,7 @@
     if(state.phase==='intro') gp.innerHTML=introHTML(state,true);
     else if(state.phase==='countdown') { gp.innerHTML=countdownHTML(state,false); startCountdownUI(state.unlockAt); }
     else if(state.phase==='drawing') gp.innerHTML=drawingHTML(state,true);
+    else if(state.phase==='finished') gp.innerHTML=finalHTML(state);
     else { gp.innerHTML=revealHTML(state,false); maybeCelebrate(state,false); }
 
     const box=$('hostPlayers'); box.innerHTML='';
@@ -210,13 +218,14 @@
     if(state.phase==='intro') a.innerHTML=`<button id="startBtn" class="btn btn-primary" type="button" style="width:100%">${state.game.rank} 3 · 2 · 1 시작</button>`;
     else if(state.phase==='countdown') a.innerHTML='<button class="btn btn-soft" type="button" style="width:100%" disabled>3 · 2 · 1 진행 중...</button>';
     else if(state.phase==='drawing') a.innerHTML=`<button id="forceRevealBtn" class="btn btn-danger" type="button" style="width:100%">현재 선택자만으로 당첨 결과 공개 →</button><div class="small muted" style="margin-top:7px;line-height:1.4">미선택자는 이번 게임에서 제외됩니다. 최소 ${state.game.winners}명은 선택을 완료해야 합니다.</div>`;
+    else if(state.phase==='reveal'&&state.gameIndex===state.totalGames-1) a.innerHTML='<button class="btn btn-soft" type="button" style="width:100%" disabled>5초 뒤 최종 결과가 표시됩니다.</button>';
     else if(state.phase==='reveal') a.innerHTML='<button id="nextBtn" class="btn btn-primary" type="button" style="width:100%">다음 게임 상품 공개 →</button>';
     else a.innerHTML='<button class="btn btn-soft" type="button" style="width:100%" disabled>🎉 4개 게임 모두 완료!</button>';
 
     $('startBtn')?.addEventListener('click',()=>{ $('startBtn').disabled=true; setStatus('hostStatus','3 · 2 · 1 시작!','ok'); socket.emit('startCountdown',{code:roomCode,hostToken},res=>{if(!res?.ok){$('startBtn').disabled=false;setStatus('hostStatus',res?.error||'시작하지 못했어요.','err');}}); });
     $('forceRevealBtn')?.addEventListener('click',()=>{ if(!confirm(`아직 선택하지 않은 사람은 이번 게임에서 제외하고 결과를 공개할까요?\n현재 ${state.pickedCount} / ${state.eligibleCount}명 선택 완료`)) return; $('forceRevealBtn').disabled=true; socket.emit('forceReveal',{code:roomCode,hostToken},res=>{if(!res?.ok){$('forceRevealBtn').disabled=false;setStatus('hostStatus',res?.error||'결과를 공개하지 못했어요.','err');}}); });
     $('nextBtn')?.addEventListener('click',()=>{ $('nextBtn').disabled=true; socket.emit('nextGame',{code:roomCode,hostToken},res=>{if(!res?.ok){$('nextBtn').disabled=false;setStatus('hostStatus',res?.error||'다음 게임으로 넘어가지 못했어요.','err');}}); });
-    $('hostHistory').innerHTML=historyHTML(state);
+    $('hostHistory').innerHTML=state.phase==='finished'?'':historyHTML(state);
   }
 
   $('copyLink').addEventListener('click',async()=>{ const text=$('inviteLink').textContent; try{await navigator.clipboard.writeText(text);setStatus('hostStatus','초대 링크를 복사했어요.','ok');}catch{window.prompt('이 링크를 복사해주세요.',text);} });
