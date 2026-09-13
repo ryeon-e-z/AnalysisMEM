@@ -92,6 +92,7 @@ function publicState(room) {
     game: game ? { ...game } : null,
     totalGames: GAMES.length,
     unlockAt: room.unlockAt,
+    finalResultsAt: room.finalResultsAt,
     cards,
     cardCount: cards.length,
     playerCount: room.players.size,
@@ -130,6 +131,7 @@ function prepareGame(room, gameIndex) {
   room.currentWinners = [];
   room.eligiblePlayerKeys = [];
   room.forcedReveal = false;
+  room.finalResultsAt = null;
   for (const p of room.players.values()) delete p.pickByGame[gameIndex];
 }
 
@@ -176,7 +178,16 @@ function finalizeGame(room, forced = false) {
 
   room.currentWinners = winners;
   room.history.push({ gameIndex: room.gameIndex, winners });
-  room.phase = room.gameIndex === GAMES.length - 1 ? 'finished' : 'reveal';
+  room.phase = 'reveal';
+  if (room.gameIndex === GAMES.length - 1) {
+    room.finalResultsAt = Date.now() + 5000;
+    clearTimeout(room.timer);
+    room.timer = setTimeout(() => {
+      if (rooms.get(room.code) !== room || room.phase !== 'reveal') return;
+      room.phase = 'finished';
+      emitRoom(room);
+    }, 5000);
+  }
   emitRoom(room);
   return { ok: true };
 }
@@ -200,6 +211,7 @@ io.on('connection', socket => {
       phase: 'intro',
       gameIndex: 0,
       unlockAt: null,
+      finalResultsAt: null,
       cards: [],
       winningCardIds: [],
       currentWinners: [],
