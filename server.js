@@ -46,13 +46,17 @@ function isHost(socket, room, token) {
   return !!room && room.hostToken === token && room.hostSocketId === socket.id;
 }
 
-function randomWinnerCardIds(cardCount, winnerCount) {
-  const ids = Array.from({ length: cardCount }, (_, i) => i);
-  for (let i = ids.length - 1; i > 0; i--) {
+function shuffled(values) {
+  const arr = [...values];
+  for (let i = arr.length - 1; i > 0; i--) {
     const j = crypto.randomInt(i + 1);
-    [ids[i], ids[j]] = [ids[j], ids[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return ids.slice(0, winnerCount);
+  return arr;
+}
+
+function randomWinnerCardIds(cardCount, winnerCount) {
+  return shuffled(Array.from({ length: cardCount }, (_, i) => i)).slice(0, winnerCount);
 }
 
 function currentGame(room) {
@@ -60,13 +64,27 @@ function currentGame(room) {
 }
 
 function gameHistory(room) {
-  return room.history.map(h => ({ gameIndex: h.gameIndex, rank: GAMES[h.gameIndex].rank, prize: GAMES[h.gameIndex].prize, winners: h.winners }));
+  return room.history.map(h => ({
+    gameIndex: h.gameIndex,
+    rank: GAMES[h.gameIndex].rank,
+    prize: GAMES[h.gameIndex].prize,
+    winners: h.winners.map(w => ({ name: w.name, cardNumber: w.cardNumber }))
+  }));
+}
+
+function activeKeys(room) {
+  if (room.phase === 'intro') return [...room.players.values()].filter(p => !p.hasWon).map(p => p.key);
+  return room.eligiblePlayerKeys;
 }
 
 function publicState(room) {
   const game = currentGame(room);
   const cards = room.cards.map(c => ({ id: c.id, claimed: !!c.claimedBy }));
   const reveal = room.phase === 'reveal' || room.phase === 'finished';
+  const eligibleKeys = new Set(activeKeys(room));
+  const eligibleCount = eligibleKeys.size;
+  const pickedCount = [...eligibleKeys].filter(key => room.players.get(key)?.pickByGame[room.gameIndex] !== undefined).length;
+
   return {
     code: room.code,
     phase: room.phase,
@@ -77,11 +95,20 @@ function publicState(room) {
     cards,
     cardCount: cards.length,
     playerCount: room.players.size,
-    pickedCount: [...room.players.values()].filter(p => p.pickByGame[room.gameIndex] !== undefined).length,
-    players: [...room.players.values()].map(p => ({ name: p.name, online: !!p.socketId, picked: p.pickByGame[room.gameIndex] !== undefined })),
-    winners: reveal ? room.currentWinners : [],
+    eligibleCount,
+    spectatorCount: room.players.size - eligibleCount,
+    pickedCount,
+    players: [...room.players.values()].map(p => ({
+      name: p.name,
+      online: !!p.socketId,
+      picked: p.pickByGame[room.gameIndex] !== undefined,
+      won: !!p.hasWon,
+      eligible: eligibleKeys.has(p.key)
+    })),
+    winners: reveal ? room.currentWinners.map(w => ({ name: w.name, cardNumber: w.cardNumber })) : [],
     history: gameHistory(room),
-    rosterLocked: room.rosterLocked
+    rosterLocked: room.rosterLocked,
+    forcedReveal: !!room.forcedReveal
   };
 }
 
@@ -101,24 +128,63 @@ function prepareGame(room, gameIndex) {
   room.cards = [];
   room.winningCardIds = [];
   room.currentWinners = [];
+  room.eligiblePlayerKeys = [];
+  room.forcedReveal = false;
   for (const p of room.players.values()) delete p.pickByGame[gameIndex];
 }
 
-function completeIfReady(room) {
-  if (room.phase !== 'drawing' || room.players.size === 0) return;
-  const everyonePicked = [...room.players.values()].every(p => p.pickByGame[room.gameIndex] !== undefined);
-  if (!everyonePicked) return;
+function finalizeGame(room, forced = false) {
+  if (room.phase !== 'drawing') return { ok: false, error: '현재는 결과를 공개할 수 없어요.' };
 
-  const winners = [];
-  for (const p of room.players.values()) {
-    const cardId = p.pickByGame[room.gameIndex];
-    if (room.winningCardIds.includes(cardId)) winners.push({ name: p.name, cardNumber: cardId + 1 });
+  const game = currentGame(room);
+  if (!game) return { ok: false, error: '게임 정보를 찾을 수 없어요.' };
+
+  const eligiblePlayers = room.eligiblePlayerKeys.map(key => room.players.get(key)).filter(Boolean);
+  const pickedPlayers = eligiblePlayers.filter(p => p.pickByGame[room.gameIndex] !== undefined);
+
+  if (forced && pickedPlayers.length < game.winners) {
+    return { ok: false, error: `현재 ${pickedPlayers.length}명만 선택했어요. ${game.rank} 당첨자 ${game.winners}명을 확정하려면 최소 ${game.winners}명이 선택해야 해요.` };
   }
-  winners.sort((a, b) => a.cardNumber - b.cardNumber);
+
+  if (!forced && pickedPlayers.length !== eligiblePlayers.length) return { ok: false, error: '아직 선택하지 않은 참가자가 있어요.' };
+
+  if (forced) {
+    const claimedIds = pickedPlayers.map(p => p.pickByGame[room.gameIndex]);
+    const claimedSet = new Set(claimedIds);
+    const alreadyHit = room.winningCardIds.filter(id => claimedSet.has(id));
+    const need = game.winners - alreadyHit.length;
+    const candidates = claimedIds.filter(id => !alreadyHit.includes(id));
+    room.winningCardIds = [...alreadyHit, ...shuffled(candidates).slice(0, need)];
+    room.forcedReveal = true;
+  }
+
+  const winnerIdSet = new Set(room.winningCardIds);
+  const winners = pickedPlayers
+    .filter(p => winnerIdSet.has(p.pickByGame[room.gameIndex]))
+    .map(p => ({ playerKey: p.key, name: p.name, cardNumber: p.pickByGame[room.gameIndex] + 1 }))
+    .sort((a, b) => a.cardNumber - b.cardNumber);
+
+  if (winners.length !== game.winners) return { ok: false, error: '당첨 결과를 확정하지 못했어요. 다시 시도해주세요.' };
+
+  for (const winner of winners) {
+    const p = room.players.get(winner.playerKey);
+    if (p) {
+      p.hasWon = true;
+      p.wonGameIndex = room.gameIndex;
+    }
+  }
+
   room.currentWinners = winners;
   room.history.push({ gameIndex: room.gameIndex, winners });
   room.phase = room.gameIndex === GAMES.length - 1 ? 'finished' : 'reveal';
   emitRoom(room);
+  return { ok: true };
+}
+
+function completeIfReady(room) {
+  if (room.phase !== 'drawing' || room.eligiblePlayerKeys.length === 0) return;
+  const everyonePicked = room.eligiblePlayerKeys.every(key => room.players.get(key)?.pickByGame[room.gameIndex] !== undefined);
+  if (everyonePicked) finalizeGame(room, false);
 }
 
 io.on('connection', socket => {
@@ -137,8 +203,10 @@ io.on('connection', socket => {
       cards: [],
       winningCardIds: [],
       currentWinners: [],
+      eligiblePlayerKeys: [],
       players: new Map(),
       rosterLocked: false,
+      forcedReveal: false,
       history: [],
       createdAt: Date.now(),
       timer: null
@@ -173,15 +241,16 @@ io.on('connection', socket => {
     if (duplicate) return cb({ ok: false, error: '같은 이름이 이미 있어요. 이름 뒤에 숫자 등을 붙여주세요.' });
 
     const existing = room.players.get(playerKey);
-    const player = existing || { key: playerKey, name, socketId: null, joinedAt: Date.now(), pickByGame: {} };
+    const player = existing || { key: playerKey, name, socketId: null, joinedAt: Date.now(), pickByGame: {}, hasWon: false, wonGameIndex: null };
     player.name = name;
     player.socketId = socket.id;
+    if (player.hasWon === undefined) player.hasWon = false;
     room.players.set(playerKey, player);
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.playerKey = playerKey;
 
-    cb({ ok: true, state: publicState(room), myPick: player.pickByGame[room.gameIndex] ?? null });
+    cb({ ok: true, state: publicState(room), myPick: player.pickByGame[room.gameIndex] ?? null, hasWon: !!player.hasWon });
     emitRoom(room);
   });
 
@@ -191,13 +260,17 @@ io.on('connection', socket => {
     if (room.phase !== 'intro') return cb({ ok: false, error: '지금은 시작할 수 없는 상태예요.' });
     const game = currentGame(room);
     if (!game) return cb({ ok: false, error: '게임 정보를 찾을 수 없어요.' });
-    if (room.players.size < game.winners) return cb({ ok: false, error: `${game.rank}은 당첨자가 ${game.winners}명이라 참가자가 최소 ${game.winners}명 필요해요.` });
+
+    const eligiblePlayers = [...room.players.values()].filter(p => !p.hasWon);
+    if (eligiblePlayers.length < game.winners) return cb({ ok: false, error: `${game.rank}은 당첨자가 ${game.winners}명이라 미당첨 참가자가 최소 ${game.winners}명 필요해요.` });
 
     if (room.gameIndex === 0) room.rosterLocked = true;
-    const cardCount = room.players.size;
+    room.eligiblePlayerKeys = eligiblePlayers.map(p => p.key);
+    const cardCount = room.eligiblePlayerKeys.length;
     room.cards = Array.from({ length: cardCount }, (_, id) => ({ id, claimedBy: null }));
     room.winningCardIds = randomWinnerCardIds(cardCount, game.winners);
     room.currentWinners = [];
+    room.forcedReveal = false;
     for (const p of room.players.values()) delete p.pickByGame[room.gameIndex];
 
     room.phase = 'countdown';
@@ -205,7 +278,7 @@ io.on('connection', socket => {
     emitRoom(room);
     clearTimeout(room.timer);
     room.timer = setTimeout(() => {
-      if (!rooms.has(room.code)) return;
+      if (!rooms.has(room.code) || room.phase !== 'countdown') return;
       room.phase = 'drawing';
       room.unlockAt = Date.now();
       emitRoom(room);
@@ -220,6 +293,7 @@ io.on('connection', socket => {
     const cardId = Number(payload?.cardId);
     if (!room || !player || player.socketId !== socket.id) return cb({ ok: false, error: '참가자 정보를 확인할 수 없어요.' });
     if (room.phase !== 'drawing') return cb({ ok: false, error: '아직 뽑기 시간이 아니에요.' });
+    if (player.hasWon || !room.eligiblePlayerKeys.includes(playerKey)) return cb({ ok: false, error: '이미 당첨되어 이번 게임은 관전만 할 수 있어요.' });
     if (!Number.isInteger(cardId) || cardId < 0 || cardId >= room.cards.length) return cb({ ok: false, error: '잘못된 카드예요.' });
     if (player.pickByGame[room.gameIndex] !== undefined) return cb({ ok: false, error: '이번 게임에서는 이미 하나를 골랐어요.' });
 
@@ -231,6 +305,13 @@ io.on('connection', socket => {
     cb({ ok: true, cardId });
     emitRoom(room);
     completeIfReady(room);
+  });
+
+  socket.on('forceReveal', (payload, cb = () => {}) => {
+    const room = getRoom(payload?.code);
+    if (!isHost(socket, room, payload?.hostToken)) return cb({ ok: false, error: '진행자 권한이 없어요.' });
+    const result = finalizeGame(room, true);
+    cb(result);
   });
 
   socket.on('nextGame', (payload, cb = () => {}) => {
