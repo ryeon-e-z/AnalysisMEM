@@ -48,6 +48,10 @@
       <div id="hostPanel" class="form hidden">
         <label class="label" for="hostName">진행자 이름</label><input id="hostName" class="input" maxlength="30" value="진행자">
         <button id="createBtn" class="btn btn-primary" type="button">새 추첨방 만들기</button><div id="createStatus" class="status"></div>
+        <div style="border-top:1px solid var(--line);padding-top:16px;margin-top:8px"><b>기존 방에 진행자로 들어가기</b><p class="small muted">같은 브라우저에서는 복구 키가 자동으로 채워집니다. 다른 기기에서는 저장한 복구 키를 입력하세요.</p></div>
+        <label class="label" for="resumeCode">기존 방 코드</label><input id="resumeCode" class="input" maxlength="6" placeholder="6자리 방 코드" autocomplete="off">
+        <label class="label" for="resumeKey">진행자 복구 키</label><input id="resumeKey" class="input" type="password" placeholder="진행자 전용 복구 키" autocomplete="off">
+        <button id="resumeBtn" class="btn btn-primary" type="button">기존 방에 들어가기</button><div id="resumeStatus" class="status"></div>
       </div>
     </div>
   </section>
@@ -65,6 +69,7 @@
       <div class="host-controls">
         <div id="inviteLink" class="invite"></div>
         <div class="actions"><button id="copyLink" class="btn btn-ghost" type="button">링크 복사</button><button id="shareLink" class="btn btn-ghost" type="button">초대 공유</button></div>
+        <details style="margin-top:14px"><summary>진행자 재입장 정보</summary><p class="small muted">다른 기기로 이어서 진행하려면 방 코드와 복구 키를 보관하세요. 복구 키는 진행자 전용입니다.</p><label class="label" for="hostRecoveryKey">진행자 복구 키</label><input id="hostRecoveryKey" class="input" type="password" readonly><button id="copyRecovery" class="btn btn-ghost" type="button" style="margin-top:8px">방 코드 + 복구 키 복사</button></details>
         <div id="hostActionArea" style="margin-top:10px"></div>
         <div id="hostStatus" class="status"></div>
         <div style="margin-top:16px"><div class="label">참가 현황</div><div id="hostPlayers" class="people"></div></div>
@@ -104,10 +109,41 @@
       $('createBtn').disabled=false;
       if(!res?.ok) return setStatus('createStatus',res?.error||'방을 만들지 못했어요.','err');
       roomCode=res.code; hostToken=res.hostToken; mode='host'; currentState=res.state;
-      sessionStorage.setItem('groupDrawHost',JSON.stringify({code:roomCode,hostToken}));
+      saveHost({code:roomCode,hostToken});
       hide('homeView'); show('hostView'); renderHost(res.state); history.replaceState(null,'',location.pathname+'?host='+roomCode);
     });
   });
+
+  function storedHost(){
+    for(const storage of [sessionStorage,localStorage]) { try { const saved=JSON.parse(storage.getItem('groupDrawHost')); if(saved?.code&&saved?.hostToken) return saved; } catch {} }
+    return null;
+  }
+  function saveHost(saved){
+    for(const storage of [localStorage,sessionStorage]) { try { storage.setItem('groupDrawHost',JSON.stringify(saved)); } catch {} }
+    $('resumeCode').value=saved.code; $('resumeKey').value=saved.hostToken;
+  }
+  function enterHost(saved,state){
+    roomCode=state.code; hostToken=saved.hostToken; mode='host'; currentState=state; saveHost({code:roomCode,hostToken});
+    hide('homeView'); hide('playerView'); show('hostView'); renderHost(state);
+    history.replaceState(null,'',location.pathname+'?host='+roomCode);
+  }
+  function restoreHost(saved,statusId='resumeStatus'){
+    $('resumeBtn').disabled=true; setStatus(statusId,'진행자 권한 복구 중...');
+    socket.emit('resumeHost',saved,res=>{
+      $('resumeBtn').disabled=false;
+      if(!res?.ok) { setStatus(statusId,res?.error||'복구하지 못했어요.','err'); if(mode==='host') { mode=null; hide('hostView'); show('homeView'); $('hostTab').click(); } return; }
+      enterHost(saved,res.state); setStatus('hostStatus','기존 방에 진행자로 다시 연결되었습니다.','ok'); setStatus('resumeStatus');
+    });
+  }
+  const savedHost=storedHost(); if(savedHost){$('resumeCode').value=savedHost.code;$('resumeKey').value=savedHost.hostToken;}
+  if(qs.get('host')){$('resumeCode').value=qs.get('host').toUpperCase();if(savedHost?.code!==$('resumeCode').value)$('resumeKey').value='';$('hostTab').click();}
+  $('resumeCode').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);});
+  $('resumeBtn').addEventListener('click',()=>{
+    const code=$('resumeCode').value.trim().toUpperCase(),hostToken=$('resumeKey').value.trim();
+    if(code.length!==6||!hostToken) return setStatus('resumeStatus','방 코드와 진행자 복구 키를 입력해주세요.','err');
+    restoreHost({code,hostToken});
+  });
+  ['resumeCode','resumeKey'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')$('resumeBtn').click();}));
 
   $('joinBtn').addEventListener('click',()=>{
     const code=$('joinCode').value.trim().toUpperCase(), name=$('joinName').value.trim();
@@ -201,6 +237,7 @@
   }
 
   function renderHost(state){
+    $('hostRecoveryKey').value=hostToken||'';
     currentState=state; $('hCode').textContent=state.code; $('playerCount').textContent=state.playerCount+'명'; $('hostPhase').textContent=phaseText(state.phase);
     $('inviteLink').textContent=location.origin+location.pathname+'?room='+state.code;
     const gp=$('hostGamePanel');
@@ -228,6 +265,8 @@
     $('hostHistory').innerHTML=state.phase==='finished'?'':historyHTML(state);
   }
 
+  $('copyRecovery').addEventListener('click',async()=>{const text='방 코드: '+roomCode+'\n진행자 복구 키: '+hostToken;try{await navigator.clipboard.writeText(text);setStatus('hostStatus','진행자 재입장 정보를 복사했어요.','ok');}catch{window.prompt('진행자 재입장 정보를 복사해주세요.',text);}});
+
   $('copyLink').addEventListener('click',async()=>{ const text=$('inviteLink').textContent; try{await navigator.clipboard.writeText(text);setStatus('hostStatus','초대 링크를 복사했어요.','ok');}catch{window.prompt('이 링크를 복사해주세요.',text);} });
   $('shareLink').addEventListener('click',async()=>{ const url=$('inviteLink').textContent; if(navigator.share){try{await navigator.share({title:'3Q Team Building Lucky Draw',text:'방 코드 '+roomCode,url});}catch{}}else $('copyLink').click(); });
 
@@ -252,11 +291,13 @@
   socket.on('disconnect',()=>{ const b=$('connectionBadge'); b.querySelector('.dot')?.classList.remove('on'); b.querySelector('span').textContent='재연결 중'; });
 
   function tryResumeHost(){
-    if(mode) return; const raw=sessionStorage.getItem('groupDrawHost'); if(!raw) return; let saved; try{saved=JSON.parse(raw)}catch{return} if(qs.get('host')!==saved.code) return;
-    socket.emit('resumeHost',saved,res=>{ if(!res?.ok)return; roomCode=saved.code;hostToken=saved.hostToken;mode='host';hide('homeView');show('hostView');renderHost(res.state); });
+    if(mode==='player') return;
+    const saved=mode==='host'?{code:roomCode,hostToken}:storedHost();
+    if(!saved||(!mode&&qs.get('host')!==saved.code)) return;
+    restoreHost(saved,mode==='host'?'hostStatus':'resumeStatus');
   }
   function tryResumePlayer(){
-    if(mode||!qs.get('room')) return; const raw=localStorage.getItem('groupDrawLastJoin'); if(!raw) return; let saved; try{saved=JSON.parse(raw)}catch{return} if(saved.code!==qs.get('room').toUpperCase()) return;
+    if(mode==='host'||(!mode&&!qs.get('room'))) return; const raw=localStorage.getItem('groupDrawLastJoin'); if(!raw) return; let saved; try{saved=JSON.parse(raw)}catch{return} if(saved.code!==(mode==='player'?roomCode:qs.get('room')?.toUpperCase())) return;
     socket.emit('joinRoom',{code:saved.code,name:saved.name,playerKey},res=>{ if(!res?.ok)return;roomCode=saved.code;mode='player';currentState=res.state;myPick=res.myPick;myHasWon=!!res.hasWon;hide('homeView');show('playerView');$('pCode').textContent=roomCode;$('playerInfo').textContent=saved.name+'님';renderPlayer(res.state); });
   }
 })();
