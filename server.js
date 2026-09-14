@@ -231,7 +231,8 @@ io.on('connection', socket => {
 
   socket.on('resumeHost', (payload, cb = () => {}) => {
     const room = getRoom(payload?.code);
-    if (!room || room.hostToken !== payload?.hostToken) return cb({ ok: false, error: '진행자 세션을 복구할 수 없어요.' });
+    if (!room) return cb({ ok: false, error: '해당 방이 없거나 만료되었습니다. 서버가 재시작되면 기존 방은 사라집니다.' });
+    if (room.hostToken !== payload?.hostToken) return cb({ ok: false, error: '진행자 복구 키가 일치하지 않습니다.' });
     room.hostSocketId = socket.id;
     socket.join(room.code);
     socket.data.hostRoom = room.code;
